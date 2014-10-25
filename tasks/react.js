@@ -10,12 +10,19 @@
 
 module.exports = function(grunt) {
 
-  var transform = require('react-tools').transform;
-
   grunt.registerMultiTask('react', 'Compile Facebook React JSX templates into JavaScript', function() {
     var done = this.async();
 
     var options = this.options();
+
+    var transform;
+    if (options.separateSourceMaps) {
+      transform = require('react-tools').transformWithDetails;
+    }
+    else {
+      transform = require('react-tools').transform;
+    }
+
     grunt.verbose.writeflags(options, 'Options');
 
     if (this.files.length < 1) {
@@ -44,11 +51,21 @@ module.exports = function(grunt) {
       }
 
       var compiled = [];
+      var maps = [];
       grunt.util.async.concatSeries(files, function(file, next) {
         grunt.log.writeln('[react] Compiling ' + file.cyan + ' --> ' + destFile.cyan);
-
         try {
-          compiled.push(transform(grunt.file.read(file), options));
+          var transformed = transform(grunt.file.read(file), options);
+          if (options.separateSourceMaps) {
+            compiled.push(transformed.code);
+            transformed.sourceMap.file = destFile;
+            transformed.sourceMap.sources = [file];
+            maps.push(JSON.stringify(transformed.sourceMap));
+          }
+          else {
+            compiled.push(transformed);
+          }
+
         } catch (e) {
           grunt.event.emit('react.error', file, e);
           grunt.fail.warn(e);
@@ -58,6 +75,10 @@ module.exports = function(grunt) {
       }, function () {
         grunt.file.write(destFile, compiled.join(grunt.util.normalizelf(grunt.util.linefeed)));
         grunt.log.writeln('[react] File ' + destFile.cyan + ' created.');
+        if (options.separateSourceMaps) {
+          grunt.file.write(destFile + '.map', maps.join(grunt.util.normalizelf(grunt.util.linefeed)));
+          grunt.log.writeln('[react] Source Map ' + (destFile + '.map' ).cyan + ' created.');
+        }
         nextFileObj();
       });
 
