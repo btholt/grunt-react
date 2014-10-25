@@ -10,6 +10,8 @@
 
 module.exports = function(grunt) {
 
+  var path = require('path');
+
   grunt.registerMultiTask('react', 'Compile Facebook React JSX templates into JavaScript', function() {
     var done = this.async();
 
@@ -57,9 +59,11 @@ module.exports = function(grunt) {
         try {
           var transformed = transform(grunt.file.read(file), options);
           if (options.separateSourceMaps) {
-            compiled.push(transformed.code);
+            var mapfilepath = f.dest.split('/').pop() + '.map';
+            compiled.push(transformed.code + "\n//# sourceMappingURL=" + mapfilepath);
             transformed.sourceMap.file = destFile;
             transformed.sourceMap.sources = [file];
+            transformed.sourceMap.sourceRoot = path.resolve();
             maps.push(JSON.stringify(transformed.sourceMap));
           }
           else {
